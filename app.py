@@ -10,7 +10,8 @@ CONTRACT_ADDRESS = w3.to_checksum_address("0x5FbDB2315678afecb367f032d93f642f641
 ABI = json.loads("""
 [
     {"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"id","type":"uint256"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"inputs":[{"internalType":"address","name":"partnerBank","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"syndicateShares","outputs":[],"stateMutability":"nonpayable","type":"function"}
+    {"inputs":[{"internalType":"address","name":"partnerBank","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"syndicateShares","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"_loanId","type":"uint256"},{"internalType":"uint256","name":"_newValue","type":"uint256"}],"name":"updateMarketValue","outputs":[],"stateMutability":"nonpayable","type":"function"}
 ]
 """)
 
@@ -30,6 +31,17 @@ st.sidebar.header("User Identity")
 user_role = st.sidebar.selectbox("View Dashboard As:", ["Lead Bank (Seller)", "Hedge Fund (Buyer)"])
 
 st.sidebar.divider()
+st.sidebar.subheader("📉 Market Stress Test")
+# This slider acts as our "Mock Oracle"
+market_value = st.sidebar.slider("Property Market Value ($M)", 5.0, 15.0, 12.0)
+
+# Automatic logic: if market value drops below $10M, we force the UI to NPL status
+if market_value < 10.0:
+    st.sidebar.error("⚠️ MARGIN CALL: Collateral Coverage < 100%")
+    loan_status = "Non-Performing (NPL)"  # This OVERRIDES the manual slider below
+    automation_flag = True
+else:
+    automation_flag = Falsest.sidebar.divider()
 
 # NEW: DIGITAL VAULT SECTION
 st.sidebar.header("📂 Digital Vault")
