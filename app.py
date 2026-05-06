@@ -54,11 +54,22 @@ with st.sidebar.expander("View Asset Documents", expanded=False):
     st.info("Vault Access Logged to Blockchain")
 
 st.sidebar.divider()
-st.sidebar.header("Asset Controls")
+st.sidebar.subheader("📉 Market Stress Test")
+# This slider acts as our "Mock Oracle"
+market_value = st.sidebar.slider("Property Market Value ($M)", 5.0, 15.0, 12.0)
+
+# AUTOMATION: If market value drops below $10M, we force the NPL state
+if market_value < 10.0:
+    st.sidebar.error("⚠️ MARGIN CALL: Collateral < 100%")
+    auto_status = "Non-Performing (NPL)"
+else:
+    auto_status = "Performing"
+
+# We keep the UI slider but 'value' is now driven by the Market Value above
 loan_status = st.sidebar.select_slider(
     "Loan Performance Status",
     options=["Performing", "Delinquent", "Non-Performing (NPL)"],
-    value="Performing"
+    value=auto_status  # <--- This is the 'Brain' of the automation
 )
 
 # 3. Main Header
