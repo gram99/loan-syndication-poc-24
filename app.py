@@ -23,7 +23,7 @@ if w3.is_connected():
 else:
     total_funded = 0
 
-st.set_page_config(page_title="2026 Asset Marketplace", layout="wide")
+st.set_page_config(page_title="Automated Liqudation Engine", layout="wide")
 
 # 2. Sidebar: Identity & The Digital Vault
 st.sidebar.header("User Identity")
@@ -50,7 +50,7 @@ loan_status = st.sidebar.select_slider(
 )
 
 # 3. Main Header
-st.title(f"Loan Marketplace: {loan_status}")
+st.title(f"🛡️ PoC #24: Automated Liquidation & Margin Call Engine")
 st.caption(f"Asset Digital Twin: {CONTRACT_ADDRESS}")
 
 # 4. Metrics & Valuation
