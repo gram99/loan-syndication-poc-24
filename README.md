@@ -17,6 +17,7 @@ The project demonstrates a 2026-standard financial infrastructure for the lifecy
 - **NPL Pivot Logic:** Real-time transition from "Performing" to "Non-Performing" status, triggering secondary market listing and valuation haircuts.
 - **Dual-Role Dashboard:** Toggle between Lead Bank (Seller) and Hedge Fund (Buyer) perspectives.
 - **Digital Vault:** Integrated access to IPFS-verified Appraisal Reports and Phase I Environmental documents.
+- **Asset Degradation & Liquidation Curve Charting:** Real-time charting of implied clearance price, property value, and risk haircut.
 
 ---
 
