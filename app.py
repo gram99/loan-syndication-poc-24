@@ -3,6 +3,7 @@ import pandas as pd
 from web3 import Web3
 import json
 import os
+import time
 
 # --- 1. Dynamic Blockchain Binding ---
 w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
@@ -32,12 +33,12 @@ contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=ABI)
 if w3.is_connected():
     accounts = w3.eth.accounts
     lead_bank_wallet = accounts[0]
-    hedge_fund_wallet = accounts[4]
+    hedge_fund_wallet = accounts[9]
     total_funded = sum([contract.functions.balanceOf(acc, 1).call() for acc in accounts[1:10]])
 else:
-    accounts = ["0x0000000000000000000000000000000000000000"] * 5
+    accounts = ["0x0000000000000000000000000000000000000000"] * 10
     lead_bank_wallet = accounts[0]
-    hedge_fund_wallet = accounts[4]
+    hedge_fund_wallet = accounts[9]
     total_funded = 0
 
 # --- 2. Live On-Chain Event Thread Listener ---
@@ -60,13 +61,15 @@ def fetch_blockchain_events():
 
 st.set_page_config(page_title="Automated Liquidation Engine v2", layout="wide")
 
-# Initialize rolling chart data history inside Streamlit session memory
+# Initialize caching variables inside memory
 if 'metrics_history' not in st.session_state:
     st.session_state['metrics_history'] = pd.DataFrame(columns=[
         "Property Value ($M)", 
         "Implied Clearance Price ($M)", 
         "Risk Haircut ($M)"
     ])
+if 'margin_call_start_time' not in st.session_state:
+    st.session_state['margin_call_start_time'] = None
 
 # --- 3. Identity and Dashboard Multi-Sig Space ---
 st.sidebar.header("User Identity Context")
@@ -80,8 +83,15 @@ market_value = st.sidebar.slider("Property Evaluation ($M)", 5.0, 15.0, 12.0)
 if market_value < 10.0:
     st.sidebar.error("⚠️ MARGIN CALL TRIPPED: LTV Violation")
     auto_status = "Non-Performing (NPL)"
+    
+    if st.session_state['margin_call_start_time'] is None:
+        st.session_state['margin_call_start_time'] = time.time()
+        
+    elapsed_seconds = int(time.time() - st.session_state['margin_call_start_time'])
+    st.sidebar.metric("⏳ Margin Call Exposure Duration", f"{elapsed_seconds} Seconds")
 else:
     auto_status = "Performing"
+    st.session_state['margin_call_start_time'] = None
 
 loan_status = st.sidebar.select_slider(
     "Asset Real-Time Rating Status",
@@ -146,11 +156,9 @@ if user_role == "Lead Bank (Seller)":
         st.warning("Automated Liquidator Flag: Undercollateralization Event.")
         ask_price = st.slider("Target Liquidation Clearance Pricing (% of Par)", 30, 85, 45)
         
-        # Real-time data calculations
         mv = (10000000 * ask_price) / 100
         hc = 10000000 - mv
         
-        # Append parameters dynamically to historical tracking dictionary dataframe
         new_snapshot = pd.DataFrame([{
             "Property Value ($M)": market_value,
             "Implied Clearance Price ($M)": mv / 1000000,
@@ -158,7 +166,6 @@ if user_role == "Lead Bank (Seller)":
         }])
         st.session_state['metrics_history'] = pd.concat([st.session_state['metrics_history'], new_snapshot], ignore_index=True).tail(15)
         
-        # Render a live multi-line trend tracking analysis chart
         st.subheader("📈 Real-Time Asset Degradation & Liquidation Curves")
         st.line_chart(st.session_state['metrics_history'])
         
@@ -193,7 +200,7 @@ else:
 
 # --- 7. Live Ledger Registry & Active Event Feeds ---
 st.markdown("---")
-l1, l2 = st.columns([1, 1])
+l1, l2 = st.columns()
 
 with l1:
     st.subheader("📊 Current Capital Stack Ledger")
@@ -219,6 +226,8 @@ if st.sidebar.button("🔄 Reset Proof-of-Concept Engine"):
         del st.session_state['npl_price']
     if 'metrics_history' in st.session_state:
         del st.session_state['metrics_history']
+    if 'margin_call_start_time' in st.session_state:
+        del st.session_state['margin_call_start_time']
         
     if w3.is_connected():
         try:
