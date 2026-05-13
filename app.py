@@ -2,122 +2,194 @@ import streamlit as st
 import pandas as pd
 from web3 import Web3
 import json
+import os
 
-# 1. Connection & Setup
+# --- 1. Dynamic Blockchain Binding ---
 w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
-CONTRACT_ADDRESS = w3.to_checksum_address("0x5FbDB2315678afecb367f032d93f642f64180aa3")
+
+# Autodetect addresses emitted via Hardhat build script
+if os.path.exists('deployment.json'):
+    with open('deployment.json', 'r') as f:
+        meta = json.load(f)
+        CONTRACT_ADDRESS = w3.to_checksum_address(meta['address'])
+else:
+    CONTRACT_ADDRESS = w3.to_checksum_address("0x5FbDB2315678afecb367f032d93f642f64180aa3")
+
 ABI = json.loads("""
 [
     {"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"id","type":"uint256"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
     {"inputs":[{"internalType":"address","name":"partnerBank","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"syndicateShares","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[{"internalType":"uint256","name":"_loanId","type":"uint256"},{"internalType":"uint256","name":"_newValue","type":"uint256"}],"name":"updateMarketValue","outputs":[],"stateMutability":"nonpayable","type":"function"}
+    {"inputs":[{"internalType":"string","name":"docId","type":"string"}],"name":"signVaultDocument","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"string","name":"docId","type":"string"}],"name":"getSignatureCount","outputs":[{"internalType":"uint256","name":"count","type":"uint256"}],"stateMutability":"view","type":"function"},
+    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"recipient","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"SharesSyndicated","type":"event"},
+    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"string","name":"docId","type":"string"},{"indexed":true,"internalType":"address","name":"signer","type":"address"},{"indexed":false,"internalType":"uint256","name":"totalSignatures","type":"uint256"}],"name":"DocumentSigned","type":"event"}
 ]
 """)
+
 contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=ABI)
 
+# Set accounts topology
 if w3.is_connected():
     accounts = w3.eth.accounts
-    total_funded = sum([contract.functions.balanceOf(acc, 1).call() for acc in accounts[0:10]])
-    buyer_wallet = accounts[9]
+    lead_bank_wallet = accounts[0]
+    hedge_fund_wallet = accounts[4]
+    
+    # Calculate global balances live from chain state updates
+    total_funded = sum([contract.functions.balanceOf(acc, 1).call() for acc in accounts[1:10]])
 else:
+    accounts = ["0x0000000000000000000000000000000000000000"] * 5
+    lead_bank_wallet = accounts[0]
+    hedge_fund_wallet = accounts[4]
     total_funded = 0
 
-st.set_page_config(page_title="Automated Liquidation Engine", layout="wide")
+# --- 2. Live On-Chain Event Thread Listener ---
+def fetch_blockchain_events():
+    if not w3.is_connected():
+        return []
+    try:
+        event_filter = contract.events.SharesSyndicated.create_filter(from_block="0x0")
+        events = event_filter.get_all_entries()
+        log_data = []
+        for e in events:
+            log_data.append({
+                "Tx Hash": e.transactionHash.hex()[:18] + "...",
+                "Buyer/Partner": e.args.recipient,
+                "Allocated Volume": f"${e.args.amount:,.0f}"
+            })
+        return log_data
+    except:
+        return []
 
-# 2. Sidebar: Identity & The Digital Vault
-st.sidebar.header("User Identity")
-user_role = st.sidebar.selectbox("View Dashboard As:", ["Lead Bank (Seller)", "Hedge Fund (Buyer)"])
+st.set_page_config(page_title="Automated Liquidation Engine v2", layout="wide")
+
+# --- 3. Identity and Dashboard Multi-Sig Space ---
+st.sidebar.header("User Identity Context")
+user_role = st.sidebar.selectbox("Active Account Role:", ["Lead Bank (Seller)", "Hedge Fund (Buyer)"])
+active_signer = lead_bank_wallet if user_role == "Lead Bank (Seller)" else hedge_fund_wallet
+
 st.sidebar.divider()
+st.sidebar.subheader("📉 Market Stress Test System")
+market_value = st.sidebar.slider("Property Evaluation ($M)", 5.0, 15.0, 12.0)
 
-st.sidebar.subheader("📉 Market Stress Test")
-market_value = st.sidebar.slider("Property Market Value ($M)", 5.0, 15.0, 12.0)
-
-# AUTOMATION: Trigger NPL state if value drops below $10M
 if market_value < 10.0:
-    st.sidebar.error("⚠️ MARGIN CALL: Collateral < 100%")
+    st.sidebar.error("⚠️ MARGIN CALL TRIPPED: LTV Violation")
     auto_status = "Non-Performing (NPL)"
 else:
     auto_status = "Performing"
 
 loan_status = st.sidebar.select_slider(
-    "Loan Performance Status",
+    "Asset Real-Time Rating Status",
     options=["Performing", "Delinquent", "Non-Performing (NPL)"],
     value=auto_status
 )
 
 st.sidebar.divider()
 
-# DIGITAL VAULT SECTION
-st.sidebar.header("📂 Digital Vault")
-st.sidebar.caption("Secured via IPFS Hash Verification")
-with st.sidebar.expander("View Asset Documents", expanded=False):
-    st.write("**Validated On-Chain:** ✅")
-    st.button("📄 Appraisal_Report_2026.pdf")
-    st.button("🌿 Phase_I_Environmental.pdf")
-    st.button("🏗️ Property_Condition_Assess.pdf")
-    st.info("Vault Access Logged to Blockchain")
+# --- 4. Cryptographic Vault Engine ---
+st.sidebar.header("📂 Multi-Sig Document Vault")
+st.sidebar.caption("Enforced Cryptographic Asset Control via Ledger Verification")
 
-# 3. Main Header
-st.title(f"🛡️ PoC #24: Automated Liquidation & Margin Call Engine")
-st.caption(f"Asset Digital Twin: {CONTRACT_ADDRESS}")
+with st.sidebar.expander("Audit Asset Underwriting Package", expanded=True):
+    docs = {
+        "appraisal": "📄 Appraisal_Report_2026.pdf",
+        "env": "🌿 Phase_I_Environmental.pdf"
+    }
+    
+    for doc_key, doc_name in docs.items():
+        sig_count = contract.functions.getSignatureCount(doc_key).call() if w3.is_connected() else 0
+        st.write(f"**{doc_name}**")
+        st.caption(f"Signatures Captured: `{sig_count} / 2 required`")
+        
+        if sig_count >= 2:
+            st.success("✅ Document Fully Executed & Unlocked")
+        else:
+            st.warning("🔒 Pending Multi-Sig Verification")
+            
+        if st.button(f"Sign & Attest {doc_key.capitalize()}", key=f"sig_{doc_key}"):
+            if w3.is_connected():
+                tx = contract.functions.signVaultDocument(doc_key).transact({'from': active_signer})
+                st.toast(f"Attestation Logged! Tx: {tx.hex()[:10]}...")
+                st.rerun()
 
-# 4. Metrics & Valuation
+# --- 5. Main Control Panel Interface ---
+st.title("🛡️ PoC #24: Automated Liquidation & Margin Call Engine")
+st.caption(f"On-Chain Asset Representation (Digital Twin): {CONTRACT_ADDRESS}")
+
 m1, m2, m3 = st.columns(3)
 with m1:
-    st.metric("Principal Balance", "$10,000,000")
+    st.metric("Total Asset Principal Value", "$10,000,000")
 with m2:
-    st.metric("On-Chain Syndication", f"${total_funded:,.0f}")
+    st.metric("On-Chain Secondary Volume", f"${total_funded:,.0f}")
 with m3:
-    val = "6.25%" if loan_status == "Performing" else "45.0% Price (55% Discount)"
-    st.metric("Yield / Pricing", val)
+    val = "6.25% Net Yield" if loan_status == "Performing" else "Special Distressed Terms (55% Haircut)"
+    st.metric("Asset Pricing Framework", val)
 
 st.divider()
 
-# 5. Conditional Views
+# --- 6. Role-Based Execution Blocks ---
 if user_role == "Lead Bank (Seller)":
-    st.subheader("🏦 Lead Bank Management Console")
+    st.subheader("🏦 Settlement Management Interface (Lead Bank)")
     if loan_status != "Non-Performing (NPL)":
-        st.info("Loan is healthy. Primary syndication active.")
-        partner = st.selectbox("Select Institution:", options=accounts[1:5])
-        amt = st.number_input("Syndication Amount ($)", value=1000000)
-        if st.button("Finalize Syndication"):
-            tx = contract.functions.syndicateShares(partner, int(amt)).transact({'from': accounts[0]})
-            st.success(f"Syndicated! TX: {tx.hex()}")
+        st.info("Portfolio operational parameters performing within tolerance limits.")
+        partner = st.selectbox("Assign Primary Participant Wallet:", options=accounts[1:4])
+        amt = st.number_input("Syndicate Offering Allocation ($)", value=1000000)
+        if st.button("Commit Syndication Trade"):
+            tx = contract.functions.syndicateShares(partner, int(amt)).transact({'from': lead_bank_wallet})
+            st.success(f"Syndication Order Confirmed! Blockchain transaction: {tx.hex()}")
     else:
-        st.warning("NPL status detected. Listing for secondary sale enabled.")
-        # Default value changed to 45 (Matches 55% discount)
-        ask_price = st.slider("Secondary Market Ask Price (% of Par)", 30, 85, 45) 
+        st.warning("Automated Liquidator Flag: Undercollateralization Event.")
+        ask_price = st.slider("Target Liquidation Clearance Pricing (% of Par)", 30, 85, 45)
         
         mv = (10000000 * ask_price) / 100
         hc = 10000000 - mv
-        st.bar_chart(pd.DataFrame({"Market Value ($)": [mv], "Discount/Haircut ($)": [hc]}), color=["#2ecc71", "#e74c3c"])
+        st.bar_chart(pd.DataFrame({"Clearance Allocation ($)": [mv], "Asset Haircut Impact ($)": [hc]}), color=["#2ecc71", "#e74c3c"])
         
-        if st.button("🚀 Update Marketplace Listing"):
+        if st.button("🚀 Push Update to Secondary Marketplace"):
             st.session_state['npl_price'] = ask_price
-            st.success(f"Listing updated to {ask_price}% of Par (55% Discount Applied).")
+            st.success(f"Asynchronous update broadcast to marketplace at {ask_price}% of Par.")
 
 else:
-    st.subheader("💰 Institutional Buyer Portal")
+    st.subheader("💰 Distressed Debt Arbitrage Portal (Hedge Fund)")
     if loan_status != "Non-Performing (NPL)":
-        st.info("No distressed opportunities available at this time.")
+        st.info("Scanning decentralized asset registries for distressed opportunities...")
     else:
+        # Require vault unlock to purchase
+        appraisal_sigs = contract.functions.getSignatureCount("appraisal").call() if w3.is_connected() else 0
+        
         price = st.session_state.get('npl_price', 45)
-        st.error(f"OPPORTUNITY: Distressed Loan available at {price}% of Par")
-        invest_amt = st.number_input("Investment Amount ($)", value=2000000)
+        st.error(f"⚠️ DISCOVERY EVENT: Distressed Asset Portfolio Available at {price}% of Face Value")
+        
+        invest_amt = st.number_input("Target Principal Acquisition Target ($)", value=2000000)
         cost = (invest_amt * price) / 100
         
-        col_a, col_b = st.columns(2)
-        col_a.metric("Par Value of Shares", f"${invest_amt:,.0f}")
-        col_b.metric("Acquisition Cost", f"${cost:,.0f}", delta=f"-{100-price}%")
+        ca, cb = st.columns(2)
+        ca.metric("Face Value of Purchased Rights", f"${invest_amt:,.0f}")
+        cb.metric("Required Capital Deployment Cost", f"${cost:,.0f}", delta=f"-{100-price}% System Discount")
         
-        if st.button("Confirm Secondary Purchase"):
-            tx = contract.functions.syndicateShares(buyer_wallet, int(invest_amt)).transact({'from': accounts[0]})
-            st.balloons()
-            st.success(f"Trade Executed! Principal assigned to Hedge Fund wallet: {buyer_wallet}")
+        if appraisal_sigs < 2:
+            st.error("❌ Purchase Prohibited: Cryptographic Appraisal Document must have 2 valid Multi-Sig Attestations inside Vault.")
+            st.button("Confirm Secondary Purchase", disabled=True)
+        else:
+            if st.button("Confirm Secondary Purchase"):
+                tx = contract.functions.syndicateShares(hedge_fund_wallet, int(invest_amt)).transact({'from': lead_bank_wallet})
+                st.balloons()
+                st.success(f"Liquidation Asset Acquired! Tx Profile: {tx.hex()}")
 
-# 6. Simplified Ledger
+# --- 7. Live Ledger Registry & Active Event Feeds ---
 st.markdown("---")
-st.table(pd.DataFrame({
-    'Lender Role': ['Lead Bank', 'Active Partners/Buyers'],
-    'Total Exposure': ['$10,000,000 (Gross)', f'${total_funded:,.0f} (Net)']
-}))
+l1, l2 = st.columns([1, 1])
+
+with l1:
+    st.subheader("📊 Current Capital Stack Ledger")
+    st.table(pd.DataFrame({
+        'Structured Account Role': ['Lead Bank System Holdings', 'Secondary Market Participants'],
+        'Net Capital Balance': ['$10,000,000 Total Gross Allocation', f'${total_funded:,.0f} Total Settled Net']
+    }))
+
+with l2:
+    st.subheader("📡 Live Smart Contract Event Stream")
+    logs = fetch_blockchain_events()
+    if logs:
+        st.dataframe(pd.DataFrame(logs), use_container_width=True)
+    else:
+        st.caption("Monitoring node event bus... No recent trades cleared to block history.")
