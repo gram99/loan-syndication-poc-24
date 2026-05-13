@@ -1,0 +1,46 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_20-876239022ecfded7477708b3064f81b78c795636",
+  "solcVersion": "0.8.20",
+  "solcLongVersion": "0.8.20+commit.a1b79de6",
+  "compilerType": "solc",
+  "userSourceNameMap": {
+    "contracts/LoanSyndication.sol": "project/contracts/LoanSyndication.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "shanghai",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/LoanSyndication.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract LiquidationEngine {\n    address public leadBank;\n    uint256 public constant TOTAL_PAR = 10000000; // $10M Par Value\n    \n    mapping(address => uint256) public assetBalances;\n    mapping(string => mapping(address => bool)) public documentApprovals; // docId => signer => approved\n    \n    event SharesSyndicated(address indexed recipient, uint256 amount, uint256 timestamp);\n    event DocumentSigned(string indexed docId, address indexed signer, uint256 totalSignatures);\n\n    modifier onlyLeadBank() {\n        require(msg.sender == leadBank, \"Auth: Only Lead Bank permitted\");\n        _;\n    }\n\n    constructor() {\n        leadBank = msg.sender;\n        assetBalances[msg.sender] = TOTAL_PAR;\n    }\n\n    function balanceOf(address account, uint256 /* id */) external view returns (uint256) {\n        return assetBalances[account];\n    }\n\n    function syndicateShares(address partnerBank, uint256 amount) external {\n        require(assetBalances[msg.sender] >= amount, \"Balances: Insufficient syndication balance\");\n        assetBalances[msg.sender] -= amount;\n        assetBalances[partnerBank] += amount;\n        \n        emit SharesSyndicated(partnerBank, amount, block.timestamp);\n    }\n\n    function signVaultDocument(string calldata docId) external {\n        require(!documentApprovals[docId][msg.sender], \"Vault: Document already signed\");\n        documentApprovals[docId][msg.sender] = true;\n        \n        emit DocumentSigned(docId, msg.sender, 1);\n    }\n\n    function getSignatureCount(string calldata docId) public view returns (uint256 count) {\n        if (documentApprovals[docId][leadBank]) {\n            count++;\n        }\n    }\n}"
+      }
+    }
+  }
+}

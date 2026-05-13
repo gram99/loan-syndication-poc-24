@@ -1,7 +1,7 @@
-require("@nomicfoundation/hardhat-toolbox");
+import "@nomicfoundation/hardhat-ethers";
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+/** @type {import('hardhat/config').HardhatUserConfig} */
+const config = {
   solidity: {
     version: "0.8.20",
     settings: {
@@ -14,12 +14,12 @@ module.exports = {
   defaultNetwork: "localhost",
   networks: {
     hardhat: {
-      chainId: 1337, // Standard development network fallback mapping
+      type: "edr-simulated"
     },
     localhost: {
-      url: "http://127.0.0.1:8545",
-      chainId: 1337,
-    },
+      type: "http",
+      url: "http://127.0.0.1:8545"
+    }
   },
   paths: {
     sources: "./contracts",
@@ -28,3 +28,5 @@ module.exports = {
     artifacts: "./artifacts"
   }
 };
+
+export default config;

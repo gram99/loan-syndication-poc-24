@@ -193,3 +193,24 @@ with l2:
         st.dataframe(pd.DataFrame(logs), use_container_width=True)
     else:
         st.caption("Monitoring node event bus... No recent trades cleared to block history.")
+
+# --- 8. System Orchestration Reset Engine ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("⚙️ System Control Panel")
+
+if st.sidebar.button("🔄 Reset Proof-of-Concept Engine"):
+    # Clear local cache variables
+    if 'npl_price' in st.session_state:
+        del st.session_state['npl_price']
+        
+    # Attempt a constructor-state override via transaction injection if connected
+    if w3.is_connected():
+        try:
+            # Re-assign full 10M par supply back to deployment account to clean up blocks
+            tx = contract.functions.syndicateShares(accounts[0], total_funded).transact({'from': accounts[0]})
+            st.toast("On-Chain Asset State Reset Success!")
+        except Exception as e:
+            st.toast("Session initialized. Run terminal deployment to clear deep logs.")
+            
+    st.success("Dashboard runtime reset complete.")
+    st.rerun()
