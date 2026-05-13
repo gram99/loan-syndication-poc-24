@@ -1,4 +1,4 @@
-# 🛡️ Automated Liquidation & Margin Call Engine (PoC #24)
+# 🛡️ Automated Liquidation & Margin Call Engine
 
 An enterprise-grade decentralized finance (DeFi) proof-of-concept demonstrating an automated corporate debt syndication and secondary market liquidation pipeline. This engine automatically monitors underlying asset evaluations via simulated oracles, trips margin calls upon loan-to-value (LTV) breaches, and handles secondary distribution mechanics through a multi-signature verified asset vault.
 
