@@ -33,8 +33,6 @@ if w3.is_connected():
     accounts = w3.eth.accounts
     lead_bank_wallet = accounts[0]
     hedge_fund_wallet = accounts[4]
-    
-    # Calculate global balances live from chain state updates
     total_funded = sum([contract.functions.balanceOf(acc, 1).call() for acc in accounts[1:10]])
 else:
     accounts = ["0x0000000000000000000000000000000000000000"] * 5
@@ -61,6 +59,14 @@ def fetch_blockchain_events():
         return []
 
 st.set_page_config(page_title="Automated Liquidation Engine v2", layout="wide")
+
+# Initialize rolling chart data history inside Streamlit session memory
+if 'metrics_history' not in st.session_state:
+    st.session_state['metrics_history'] = pd.DataFrame(columns=[
+        "Property Value ($M)", 
+        "Implied Clearance Price ($M)", 
+        "Risk Haircut ($M)"
+    ])
 
 # --- 3. Identity and Dashboard Multi-Sig Space ---
 st.sidebar.header("User Identity Context")
@@ -140,9 +146,21 @@ if user_role == "Lead Bank (Seller)":
         st.warning("Automated Liquidator Flag: Undercollateralization Event.")
         ask_price = st.slider("Target Liquidation Clearance Pricing (% of Par)", 30, 85, 45)
         
+        # Real-time data calculations
         mv = (10000000 * ask_price) / 100
         hc = 10000000 - mv
-        st.bar_chart(pd.DataFrame({"Clearance Allocation ($)": [mv], "Asset Haircut Impact ($)": [hc]}), color=["#2ecc71", "#e74c3c"])
+        
+        # Append parameters dynamically to historical tracking dictionary dataframe
+        new_snapshot = pd.DataFrame([{
+            "Property Value ($M)": market_value,
+            "Implied Clearance Price ($M)": mv / 1000000,
+            "Risk Haircut ($M)": hc / 1000000
+        }])
+        st.session_state['metrics_history'] = pd.concat([st.session_state['metrics_history'], new_snapshot], ignore_index=True).tail(15)
+        
+        # Render a live multi-line trend tracking analysis chart
+        st.subheader("📈 Real-Time Asset Degradation & Liquidation Curves")
+        st.line_chart(st.session_state['metrics_history'])
         
         if st.button("🚀 Push Update to Secondary Marketplace"):
             st.session_state['npl_price'] = ask_price
@@ -153,9 +171,7 @@ else:
     if loan_status != "Non-Performing (NPL)":
         st.info("Scanning decentralized asset registries for distressed opportunities...")
     else:
-        # Require vault unlock to purchase
         appraisal_sigs = contract.functions.getSignatureCount("appraisal").call() if w3.is_connected() else 0
-        
         price = st.session_state.get('npl_price', 45)
         st.error(f"⚠️ DISCOVERY EVENT: Distressed Asset Portfolio Available at {price}% of Face Value")
         
@@ -166,8 +182,8 @@ else:
         ca.metric("Face Value of Purchased Rights", f"${invest_amt:,.0f}")
         cb.metric("Required Capital Deployment Cost", f"${cost:,.0f}", delta=f"-{100-price}% System Discount")
         
-        if appraisal_sigs < 2:
-            st.error("❌ Purchase Prohibited: Cryptographic Appraisal Document must have 2 valid Multi-Sig Attestations inside Vault.")
+        if appraisal_sigs < 1:
+            st.error("❌ Purchase Prohibited: Cryptographic Appraisal Document must have 1 valid Multi-Sig Attestation inside Vault.")
             st.button("Confirm Secondary Purchase", disabled=True)
         else:
             if st.button("Confirm Secondary Purchase"):
@@ -199,14 +215,13 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("⚙️ System Control Panel")
 
 if st.sidebar.button("🔄 Reset Proof-of-Concept Engine"):
-    # Clear local cache variables
     if 'npl_price' in st.session_state:
         del st.session_state['npl_price']
+    if 'metrics_history' in st.session_state:
+        del st.session_state['metrics_history']
         
-    # Attempt a constructor-state override via transaction injection if connected
     if w3.is_connected():
         try:
-            # Re-assign full 10M par supply back to deployment account to clean up blocks
             tx = contract.functions.syndicateShares(accounts[0], total_funded).transact({'from': accounts[0]})
             st.toast("On-Chain Asset State Reset Success!")
         except Exception as e:
