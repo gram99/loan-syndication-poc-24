@@ -6,7 +6,6 @@ import json
 # 1. Connection & Setup
 w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
 CONTRACT_ADDRESS = w3.to_checksum_address("0x5FbDB2315678afecb367f032d93f642f64180aa3")
-
 ABI = json.loads("""
 [
     {"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"id","type":"uint256"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -14,7 +13,6 @@ ABI = json.loads("""
     {"inputs":[{"internalType":"uint256","name":"_loanId","type":"uint256"},{"internalType":"uint256","name":"_newValue","type":"uint256"}],"name":"updateMarketValue","outputs":[],"stateMutability":"nonpayable","type":"function"}
 ]
 """)
-
 contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=ABI)
 
 if w3.is_connected():
@@ -24,26 +22,32 @@ if w3.is_connected():
 else:
     total_funded = 0
 
-st.set_page_config(page_title="Automated Liqudation Engine", layout="wide")
+st.set_page_config(page_title="Automated Liquidation Engine", layout="wide")
 
 # 2. Sidebar: Identity & The Digital Vault
 st.sidebar.header("User Identity")
 user_role = st.sidebar.selectbox("View Dashboard As:", ["Lead Bank (Seller)", "Hedge Fund (Buyer)"])
-
 st.sidebar.divider()
+
 st.sidebar.subheader("📉 Market Stress Test")
-# This slider acts as our "Mock Oracle"
 market_value = st.sidebar.slider("Property Market Value ($M)", 5.0, 15.0, 12.0)
 
-# Automatic logic: if market value drops below $10M, we force the UI to NPL status
+# AUTOMATION: Trigger NPL state if value drops below $10M
 if market_value < 10.0:
-    st.sidebar.error("⚠️ MARGIN CALL: Collateral Coverage < 100%")
-    loan_status = "Non-Performing (NPL)"  # This OVERRIDES the manual slider below
-    automation_flag = True
+    st.sidebar.error("⚠️ MARGIN CALL: Collateral < 100%")
+    auto_status = "Non-Performing (NPL)"
 else:
-    automation_flag = Falsest.sidebar.divider()
+    auto_status = "Performing"
 
-# NEW: DIGITAL VAULT SECTION
+loan_status = st.sidebar.select_slider(
+    "Loan Performance Status",
+    options=["Performing", "Delinquent", "Non-Performing (NPL)"],
+    value=auto_status
+)
+
+st.sidebar.divider()
+
+# DIGITAL VAULT SECTION
 st.sidebar.header("📂 Digital Vault")
 st.sidebar.caption("Secured via IPFS Hash Verification")
 with st.sidebar.expander("View Asset Documents", expanded=False):
@@ -53,35 +57,18 @@ with st.sidebar.expander("View Asset Documents", expanded=False):
     st.button("🏗️ Property_Condition_Assess.pdf")
     st.info("Vault Access Logged to Blockchain")
 
-st.sidebar.divider()
-st.sidebar.subheader("📉 Market Stress Test")
-# This slider acts as our "Mock Oracle"
-market_value = st.sidebar.slider("Property Market Value ($M)", 5.0, 15.0, 12.0)
-
-# AUTOMATION: If market value drops below $10M, we force the NPL state
-if market_value < 10.0:
-    st.sidebar.error("⚠️ MARGIN CALL: Collateral < 100%")
-    auto_status = "Non-Performing (NPL)"
-else:
-    auto_status = "Performing"
-
-# We keep the UI slider but 'value' is now driven by the Market Value above
-loan_status = st.sidebar.select_slider(
-    "Loan Performance Status",
-    options=["Performing", "Delinquent", "Non-Performing (NPL)"],
-    value=auto_status  # <--- This is the 'Brain' of the automation
-)
-
 # 3. Main Header
 st.title(f"🛡️ PoC #24: Automated Liquidation & Margin Call Engine")
 st.caption(f"Asset Digital Twin: {CONTRACT_ADDRESS}")
 
 # 4. Metrics & Valuation
 m1, m2, m3 = st.columns(3)
-with m1: st.metric("Principal Balance", "$10,000,000")
-with m2: st.metric("On-Chain Syndication", f"${total_funded:,.0f}")
-with m3: 
-    val = "6.25%" if loan_status == "Performing" else "45.0% Discount"
+with m1:
+    st.metric("Principal Balance", "$10,000,000")
+with m2:
+    st.metric("On-Chain Syndication", f"${total_funded:,.0f}")
+with m3:
+    val = "6.25%" if loan_status == "Performing" else "45.0% Price (55% Discount)"
     st.metric("Yield / Pricing", val)
 
 st.divider()
@@ -89,8 +76,7 @@ st.divider()
 # 5. Conditional Views
 if user_role == "Lead Bank (Seller)":
     st.subheader("🏦 Lead Bank Management Console")
-    
-    if loan_status == "Performing":
+    if loan_status != "Non-Performing (NPL)":
         st.info("Loan is healthy. Primary syndication active.")
         partner = st.selectbox("Select Institution:", options=accounts[1:5])
         amt = st.number_input("Syndication Amount ($)", value=1000000)
@@ -99,25 +85,24 @@ if user_role == "Lead Bank (Seller)":
             st.success(f"Syndicated! TX: {tx.hex()}")
     else:
         st.warning("NPL status detected. Listing for secondary sale enabled.")
-        ask_price = st.slider("Secondary Market Ask Price (% of Par)", 30, 85, 60)
+        # Default value changed to 45 (Matches 55% discount)
+        ask_price = st.slider("Secondary Market Ask Price (% of Par)", 30, 85, 45) 
         
-        # Valuation Chart
         mv = (10000000 * ask_price) / 100
         hc = 10000000 - mv
-        st.bar_chart(pd.DataFrame({"Market Value": [mv], "Haircut": [hc]}), color=["#2ecc71", "#e74c3c"])
+        st.bar_chart(pd.DataFrame({"Market Value ($)": [mv], "Discount/Haircut ($)": [hc]}), color=["#2ecc71", "#e74c3c"])
         
         if st.button("🚀 Update Marketplace Listing"):
             st.session_state['npl_price'] = ask_price
-            st.success(f"Listing updated to {ask_price}% of Par.")
+            st.success(f"Listing updated to {ask_price}% of Par (55% Discount Applied).")
 
 else:
     st.subheader("💰 Institutional Buyer Portal")
     if loan_status != "Non-Performing (NPL)":
         st.info("No distressed opportunities available at this time.")
     else:
-        price = st.session_state.get('npl_price', 60)
+        price = st.session_state.get('npl_price', 45)
         st.error(f"OPPORTUNITY: Distressed Loan available at {price}% of Par")
-        
         invest_amt = st.number_input("Investment Amount ($)", value=2000000)
         cost = (invest_amt * price) / 100
         
@@ -128,7 +113,7 @@ else:
         if st.button("Confirm Secondary Purchase"):
             tx = contract.functions.syndicateShares(buyer_wallet, int(invest_amt)).transact({'from': accounts[0]})
             st.balloons()
-            st.success(f"Trade Executed! Principal assigned to Hedge Fund wallet.")
+            st.success(f"Trade Executed! Principal assigned to Hedge Fund wallet: {buyer_wallet}")
 
 # 6. Simplified Ledger
 st.markdown("---")
