@@ -88,7 +88,9 @@ The automation script cleans the workspace environment, initializes an internal 
 
 **1. Syndication:** As a Lead Bank, select a partner from the dropdown and syndicate $1,000,000. Refresh to see the "On-Chain Funding" metric update.
 <br>
+<br>
 **2. Distress Simulation:** Use the sidebar slider to move the loan to Non-Performing (NPL). Observe the valuation "Haircut" chart.
+<br>
 <br>
 **3. Secondary Trade:** Switch roles to Hedge Fund, review the Appraisal in the Digital Vault, and purchase the distressed debt at the listed market discount.
 
