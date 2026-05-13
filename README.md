@@ -6,7 +6,7 @@
 
 ## Project Description:
 
-The project demonstrates a 2026-standard financial infrastructure for the lifecyclemanagement of multifamily loans. It uses ERC-1155 Smart Contracts to manage both the unique underlying asset (NFT) and its fractional participation shares (Fungible Tokens). The project features an automated Liquidation & Margin Call engine that is an enterprise-grade decentralized finance (DeFi) Proof-of-Concept (PoC) that demonstrates an automated corporate debt syndication and secondary market liquidation pipeline. The engine automatically monitors underlying asset evaluations via simulated oracles, trips margin calls upon loan-to-value (LTV) breaches, and handles secondary distribution mechanics through a multi-signature verified asset vault. 
+The project demonstrates a 2026-standard financial infrastructure for the lifecycle management of multifamily loans. It uses ERC-1155 Smart Contracts to manage both the unique underlying asset (NFT) and its fractional participation shares (Fungible Tokens). The project features an automated Liquidation & Margin Call engine that is an enterprise-grade decentralized finance (DeFi) Proof-of-Concept (PoC) that demonstrates an automated corporate debt syndication and secondary market liquidation pipeline. The engine automatically monitors underlying asset evaluations via simulated oracles, trips margin calls upon loan-to-value (LTV) breaches, and handles secondary distribution mechanics through a multi-signature verified asset vault. 
 
 ---
 
