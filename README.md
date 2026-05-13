@@ -2,7 +2,7 @@
 
 **Author:** Gram99
 <br>
-**Primary Audience:** Institutional Asset Managers & Commercial Lenders, Secondary Market Debt Buyers & Arbitrageurs, Regulatory Compliance & Operations Officers, and Enterprise Blockchain Architects.
+**Primary Audiences:** Institutional Asset Managers & Commercial Lenders, Secondary Market Debt Buyers & Arbitrageurs, Regulatory Compliance & Operations Officers, and Enterprise Blockchain Architects.
 
 ## Project Description:
 
