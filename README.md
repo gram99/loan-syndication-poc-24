@@ -68,6 +68,7 @@ The automation script cleans the workspace environment, initializes an internal 
 ## 📺 Screenshots
 
 <img width="1869" height="923" alt="Screenshot 2026-05-13 at 2 01 57 PM" src="https://github.com/user-attachments/assets/00aa3100-f834-4635-9745-d6779c3510c4" />
+
 <br>
 <img width="1881" height="924" alt="Screenshot 2026-05-13 at 2 01 29 PM" src="https://github.com/user-attachments/assets/78736608-5a4a-4177-bd42-36adf5b6c2f2" />
 <br>
